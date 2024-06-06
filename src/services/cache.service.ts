@@ -17,7 +17,7 @@ export class CacheService {
   ) {
     this._redisClient = createClient({ url: this.cacheConfig.redisUrl });
 
-    this._connectRedis();
+    this._connectRedis(true);
 
     this.logger.info('Redis client initialized');
   }
@@ -29,9 +29,34 @@ export class CacheService {
     return this._redisClient;
   }
 
-  private async _connectRedis(): Promise<void> {
+  private async _connectRedis(isInit = false): Promise<void> {
     if (!this._redisClient.isOpen) {
-      await this._redisClient.connect();
+      try {
+        await this._redisClient.connect();
+      } catch (err: any) {
+        this.logger.error('Failed to connect to Redis', {
+          stack: this._connectRedis.name,
+          extra: `${err}`,
+        });
+
+        if (isInit) {
+          process.exit(1);
+        }
+      }
+    }
+
+    try {
+      await this._redisClient.ping();
+    } catch (err: any) {
+      this.logger.error('Redis ping failed', {
+        stack: this._connectRedis.name,
+        func: 'Ping Redis',
+        extra: `${err}`,
+      });
+
+      if (isInit) {
+        process.exit(1);
+      }
     }
   }
 
